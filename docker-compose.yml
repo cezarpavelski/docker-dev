@@ -1,0 +1,99 @@
+homestead:
+  build: ./homestead/
+  restart: always
+  ports:
+   - "80:80" # web
+   - "2222:22" # ssh
+  links:
+   - redis:redis
+   - mysql:bd.local
+   - mongodb:mongodb
+   - chat:chat.local
+  volumes:
+   - ~/.composer:/home/homestead/.composer # composer caching
+   - ~/.gitconfig:/home/homestead/.gitconfig # Git configuration ( access alias && config )
+   - ~/.ssh:/home/homestead/.ssh # Ssh keys for easy deployment inside the container
+   - ~/export/htdocs/fpp:/var/www # all apps
+  extra_hosts:
+   - "fair.local:127.0.0.1"
+   - "auth.local:127.0.0.1"
+   - "notification.local:127.0.0.1"
+   - "statistic.local:127.0.0.1"
+   - "api.local:127.0.0.1"
+
+chat:
+  build: ./chat/
+  volumes:
+    - ~/export/htdocs/fpp/chat:/var/www
+  ports:
+    - "5000:5000"
+  links:
+    - redis:redis
+    - mysql:bd.local
+  extra_hosts:
+   - "api.local:172.17.0.9"
+   - "notification.local:172.17.0.9"
+  command: nodemon -L app.js
+
+socket:
+  build: ./socket/
+  volumes:
+    - ~/export/htdocs/fpp/socket-server:/var/www
+  ports:
+    - "5001:5001"
+  links:
+    - redis:redis
+    - mysql:bd.local
+    - homestead
+  extra_hosts:
+   - "statistic.local:172.17.0.9"
+   - "api.local:172.17.0.9"
+  command: nodemon -L dist/main.js
+
+notification:
+  build: ./notification-socket/
+  volumes:
+    - ~/export/htdocs/fpp/notification-socket:/var/www
+  ports:
+    - "6001:6001"
+  links:
+    - redis:redis
+  command: nodemon -L server.js
+
+redis:
+  image: redis
+
+mongodb:
+  image: mongo:latest
+  volumes:
+    - /data/db
+
+sonar:
+ build: ./sonar/
+ ports:
+  - 9000:9000
+ links:
+  - mysql:bd.local
+ environment:
+  - SONAR_JDBC_URL=jdbc:mysql://mysql:3306/sonarqube?useUnicode=true&characterEncoding=utf8&rewriteBatchedStatements=true
+  - SONAR_DB_USERNAME=homestead
+  - SONAR_DB_PASSWORD=secret
+
+mysql:
+  image: mysql
+  expose:
+   - 3306
+  ports:
+   - "3306:3306"
+  volumes:
+    - /var/lib/mysql
+  environment:
+   - MYSQL_ROOT_PASSWORD=secret
+   - MYSQL_USER=homestead
+   - MYSQL_PASSWORD=secret
+   - MYSQL_DATABASE=homestead
+
+jenkins:
+  image: iliyan/jenkins-ci-php:1.3.1
+  ports:
+   - 8080:8080
