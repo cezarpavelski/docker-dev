@@ -13,7 +13,7 @@ homestead:
    - ~/.composer:/home/homestead/.composer # composer caching
    - ~/.gitconfig:/home/homestead/.gitconfig # Git configuration ( access alias && config )
    - ~/.ssh:/home/homestead/.ssh # Ssh keys for easy deployment inside the container
-   - ~/export/htdocs/fpp:/var/www # all apps
+   - ~/export/htdocs:/var/www # all apps
   extra_hosts:
    - "fair.local:127.0.0.1"
    - "auth.local:127.0.0.1"
@@ -24,21 +24,21 @@ homestead:
 chat:
   build: ./chat/
   volumes:
-    - ~/export/htdocs/fpp/chat:/var/www
+    - ~/export/htdocs/chat:/var/www
   ports:
     - "5000:5000"
   links:
     - redis:redis
     - mysql:bd.local
   extra_hosts:
-   - "api.local:172.17.0.9"
-   - "notification.local:172.17.0.9"
+   - "api.local:172.17.0.10"
+   - "notification.local:172.17.0.10"
   command: nodemon -L app.js
 
 socket:
   build: ./socket/
   volumes:
-    - ~/export/htdocs/fpp/socket-server:/var/www
+    - ~/export/htdocs/socket-server:/var/www
   ports:
     - "5001:5001"
   links:
@@ -46,14 +46,14 @@ socket:
     - mysql:bd.local
     - homestead
   extra_hosts:
-   - "statistic.local:172.17.0.9"
-   - "api.local:172.17.0.9"
+   - "statistic.local:172.17.0.10"
+   - "api.local:172.17.0.10"
   command: nodemon -L dist/main.js
 
 notification:
   build: ./notification-socket/
   volumes:
-    - ~/export/htdocs/fpp/notification-socket:/var/www
+    - ~/export/htdocs/notification-socket:/var/www
   ports:
     - "6001:6001"
   links:
@@ -62,9 +62,17 @@ notification:
 
 redis:
   image: redis
+  expose:
+   - 6379
+  ports:
+   - 6379:6379
+  environment:
+   - REDIS_PORT=6379
 
 mongodb:
   image: mongo:latest
+  ports:
+    - 27017:27017
   volumes:
     - /data/db
 
@@ -72,12 +80,20 @@ sonar:
  build: ./sonar/
  ports:
   - 9000:9000
+  - 9092:9092
  links:
   - mysql:bd.local
  environment:
-  - SONAR_JDBC_URL=jdbc:mysql://mysql:3306/sonarqube?useUnicode=true&characterEncoding=utf8&rewriteBatchedStatements=true
-  - SONAR_DB_USERNAME=homestead
-  - SONAR_DB_PASSWORD=secret
+  - SONAR_JDBC_URL=jdbc:mysql://bd.local:3306/sonarqube?useUnicode=true&characterEncoding=utf8&rewriteBatchedStatements=true
+  - SONAR_JDBC_USERNAME=root
+  - SONAR_JDBC_PASSWORD=secret
+
+sonar-scanner:
+  image: sebp/sonar-runner
+  links:
+   - sonar:sonar
+  volumes:
+   - ~/export/htdocs/chat:/data
 
 mysql:
   image: mysql
